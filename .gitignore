@@ -1,0 +1,27 @@
+# VanoNote runtime data
+/data/
+/attachments/
+/audio/
+/exports/
+/backups/
+/logs/
+
+# Local Python environment
+.venv/
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+.vscode/
+.idea/
+
+# Local secrets / credentials
+.env
+.env.*
+*.pem
+*.key
