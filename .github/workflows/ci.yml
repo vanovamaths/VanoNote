@@ -19,8 +19,15 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Syntax checks
         run: |
-          python -m py_compile vanonote.py
+          python -m py_compile vanonote.py desktop.py
           node --check assets/app.js
+          bash -n install_dependencies.command
+          bash -n install_macos_app.command
+          bash -n start_vanonote.command
+          bash -n start_vanonote_browser.command
+          bash -n restart_vanonote.command
+          bash -n stop_vanonote.command
+          bash -n diagnose_vanonote.command
       - name: API smoke test
         run: |
           VANONOTE_SILENT=1 python vanonote.py > /tmp/vanonote.log 2>&1 &
