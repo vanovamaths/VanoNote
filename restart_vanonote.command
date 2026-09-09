@@ -1,36 +1,16 @@
 #!/bin/bash
-set -u
+set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$DIR" || exit 1
-mkdir -p "$DIR/logs" "$DIR/data" "$DIR/attachments" "$DIR/audio" "$DIR/exports" "$DIR/backups"
+APP="$HOME/Applications/VanoNote.app"
 
-echo "Stopping VanoNote…"
+pkill -f "$DIR/desktop.py" >/dev/null 2>&1 || true
 pkill -f "$DIR/vanonote.py" >/dev/null 2>&1 || true
 PIDS="$(lsof -tiTCP:8766 -sTCP:LISTEN 2>/dev/null || true)"
-if [ -n "$PIDS" ]; then
-  kill $PIDS >/dev/null 2>&1 || true
-fi
+if [ -n "$PIDS" ]; then kill $PIDS >/dev/null 2>&1 || true; fi
 sleep 1
 
-PY="$DIR/.venv/bin/python3"
-[ -x "$PY" ] || PY="$(command -v python3)"
-if [ -z "${PY:-}" ]; then
-  echo "Python 3 is required."
-  sleep 5
-  exit 1
-fi
-
-echo "Starting VanoNote…"
-export VANONOTE_SILENT=1
-nohup "$PY" "$DIR/vanonote.py" > "$DIR/logs/vanonote.log" 2> "$DIR/logs/vanonote.err.log" < /dev/null &
-disown
-sleep 2
-if curl -fsS http://localhost:8766/api/ping >/dev/null 2>&1; then
-  echo "OK — VanoNote is running at http://localhost:8766"
-  open "http://localhost:8766"
+if [ -d "$APP" ]; then
+  open "$APP"
 else
-  echo "Startup error. See: $DIR/logs/vanonote.err.log"
+  exec "$DIR/start_vanonote.command"
 fi
-echo ""
-echo "All VanoNote files and logs remain in: $DIR"
-sleep 5
