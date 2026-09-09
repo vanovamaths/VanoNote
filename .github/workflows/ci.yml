@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Syntax checks
+        run: |
+          python -m py_compile vanonote.py
+          node --check assets/app.js
+      - name: API smoke test
+        run: |
+          VANONOTE_SILENT=1 python vanonote.py > /tmp/vanonote.log 2>&1 &
+          pid=$!
+          trap 'kill $pid 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8766/api/ping >/dev/null; then break; fi
+            sleep 0.25
+          done
+          curl -fsS http://127.0.0.1:8766/api/ping
+          note=$(curl -fsS -X POST http://127.0.0.1:8766/api/notes \
+            -H 'Content-Type: application/json' \
+            -d '{"title":"CI smoke test"}')
+          id=$(python -c 'import json,sys; print(json.load(sys.stdin)["id"])' <<<"$note")
+          curl -fsS -X DELETE "http://127.0.0.1:8766/api/notes/$id/permanent" >/dev/null
