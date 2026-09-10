@@ -2,6 +2,8 @@
 
 VanoNote is a local-first handwritten notebook and classroom whiteboard for macOS. It is designed for stylus-based teaching, PDF annotation, structured notes, audio capture, and live classroom use.
 
+> **Latest published local build:** `2026.09.09-stable1` — Retina/HiDPI canvas rendering, 2.2× PDF rendering, Mac trackpad gestures, XP-Pen smoothing/pressure, and a native `VanoNote.app` installer with the VanoNote icon.
+
 VanoNote can run as a **native macOS window** using Cocoa/WebKit through pywebview. Chrome or Safari is not required for normal desktop use.
 
 ## Features
@@ -37,7 +39,7 @@ Clone or download this repository, then run:
 cd VanoNote
 chmod +x *.command
 ./install_dependencies.command
-./install_macos_app.command
+./install_vanonote_retina_app.command
 ```
 
 The installer creates:
@@ -135,12 +137,18 @@ VanoNote/
 ├── requirements.txt
 ├── install_dependencies.command
 ├── install_macos_app.command
+├── install_vanonote_retina_app.command
 ├── start_vanonote.command
 ├── start_vanonote_browser.command
 ├── restart_vanonote.command
 ├── stop_vanonote.command
 └── diagnose_vanonote.command
 ```
+
+## Visual showcase
+
+A static presentation page lives in `docs/index.html`. Screenshots can be added under `docs/screenshots/` and embedded in both the showcase and this README.
+
 
 ## Development
 

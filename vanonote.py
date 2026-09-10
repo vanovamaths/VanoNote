@@ -33,7 +33,7 @@ BACKUP_DIR = BASE_DIR / "backups"
 ASSETS_DIR = BASE_DIR / "assets"
 DB_PATH = DATA_DIR / "vanonote.db"
 PORT = 8766
-APP_VERSION = "1.0.0"
+APP_VERSION = "2026.09.09-stable1"
 MAX_BODY = 100 * 1024 * 1024
 
 for p in (DATA_DIR, ATTACH_DIR, AUDIO_DIR, EXPORT_DIR, BACKUP_DIR, ASSETS_DIR):
@@ -299,7 +299,7 @@ def render_pdf_pages(pdf_path: Path, attachment_id: int):
     try:
         doc = fitz.open(str(pdf_path))
         for i, page in enumerate(doc):
-            pix = page.get_pixmap(matrix=fitz.Matrix(1.6, 1.6), alpha=False)
+            pix = page.get_pixmap(matrix=fitz.Matrix(2.2, 2.2), alpha=False)
             fn = outdir / f"page_{i+1:04d}.png"
             pix.save(str(fn))
             urls.append({"url": f"/pdfpage/{attachment_id}/{i+1}", "width": pix.width, "height": pix.height})

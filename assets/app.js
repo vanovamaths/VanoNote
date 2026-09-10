@@ -48,6 +48,7 @@ const PEN_DEFAULTS={smoothing:'medium',strokeCorrection:true,pressureCurve:'line
 function loadPenConfig(){try{return {...PEN_DEFAULTS,...JSON.parse(localStorage.getItem('vn_pen_config')||'{}')}}catch{return {...PEN_DEFAULTS}}}
 let PENCFG=loadPenConfig();
 let overlayRAF=0,safariGestureStartZoom=null;
+const RETINA_DPR=clamp(window.devicePixelRatio||1,1,1.5);
 
 const canvas=$('#inkCanvas'), overlay=$('#overlayCanvas'), stage=$('#pageStage');
 const ctx=canvas.getContext('2d',{desynchronized:true}), octx=overlay.getContext('2d',{desynchronized:true});
@@ -197,10 +198,29 @@ function undo(){const p=page();if(!p||!undoStack.length)return;redoStack.push(cl
 function redo(){const p=page();if(!p||!redoStack.length)return;undoStack.push(clone({strokes:p.strokes,objects:p.objects}));const x=redoStack.pop();p.strokes=x.strokes;p.objects=x.objects;selection=null;renderCurrent();scheduleSave();updateUndoButtons()}
 function updateUndoButtons(){$('#undoBtn').disabled=!undoStack.length;$('#redoBtn').disabled=!redoStack.length}
 
-function setPage(i,save=true){if(!NOTE)return;i=clamp(i,0,NOTE.content.pages.length-1);PAGE=i;NOTE.content.activePage=i;const p=page();canvas.width=p.width;canvas.height=p.height;overlay.width=p.width;overlay.height=p.height;stage.style.width=(p.width*ZOOM)+'px';stage.style.height=(p.height*ZOOM)+'px';renderCurrent();renderPages();$('#pageStatus').textContent=`Page ${i+1} / ${NOTE.content.pages.length}`;$('#classPage').textContent=`${i+1} / ${NOTE.content.pages.length}`;if(save)scheduleSave()}
+function setPage(i,save=true){
+  if(!NOTE)return;
+  i=clamp(i,0,NOTE.content.pages.length-1);PAGE=i;NOTE.content.activePage=i;
+  const p=page(),dpr=RETINA_DPR;
+  canvas.width=Math.round(p.width*dpr);canvas.height=Math.round(p.height*dpr);
+  overlay.width=Math.round(p.width*dpr);overlay.height=Math.round(p.height*dpr);
+  stage.style.width=(p.width*ZOOM)+'px';stage.style.height=(p.height*ZOOM)+'px';
+  renderCurrent();renderPages();
+  $('#pageStatus').textContent=`Page ${i+1} / ${NOTE.content.pages.length}`;
+  $('#classPage').textContent=`${i+1} / ${NOTE.content.pages.length}`;
+  if(save)scheduleSave();
+}
 function addPage(){if(!NOTE||sharedMode==='view')return;const base=page();NOTE.content.pages.push({id:uid(),name:'Page '+(NOTE.content.pages.length+1),paper:base?.paper||NOTE.paper||'blank',width:base?.width||1600,height:base?.height||2200,strokes:[],objects:[],background:null});setPage(NOTE.content.pages.length-1);scheduleSave()}
 function deletePage(){if(!NOTE||NOTE.content.pages.length<=1)return toast('You must keep at least one page');if(!confirm('Delete this page?'))return;NOTE.content.pages.splice(PAGE,1);PAGE=clamp(PAGE,0,NOTE.content.pages.length-1);setPage(PAGE);scheduleSave()}
-function renderPages(){if(!NOTE)return;$('#pageThumbs').innerHTML=NOTE.content.pages.map((p,i)=>`<div class="thumb ${i===PAGE?'on':''}" data-i="${i}"><canvas class="thumbCanvas" width="90" height="120"></canvas><span>${i+1}</span></div>`).join('');$$('.thumb').forEach(th=>{th.onclick=()=>setPage(+th.dataset.i);const tc=th.querySelector('canvas'),tctx=tc.getContext('2d');drawPageTo(tctx,NOTE.content.pages[+th.dataset.i],90,120,true)});
+function renderPages(){
+  if(!NOTE)return;
+  const tdpr=RETINA_DPR,tw=Math.round(90*tdpr),th=Math.round(120*tdpr);
+  $('#pageThumbs').innerHTML=NOTE.content.pages.map((p,i)=>`<div class="thumb ${i===PAGE?'on':''}" data-i="${i}"><canvas class="thumbCanvas" width="${tw}" height="${th}"></canvas><span>${i+1}</span></div>`).join('');
+  $$('.thumb').forEach(thEl=>{
+    thEl.onclick=()=>setPage(+thEl.dataset.i);
+    const tc=thEl.querySelector('canvas'),tctx=tc.getContext('2d');
+    drawPageTo(tctx,NOTE.content.pages[+thEl.dataset.i],tw,th,true);
+  });
 }
 function setZoom(z){if(!NOTE)return;const p=page();ZOOM=clamp(z,.25,2.4);stage.style.width=(p.width*ZOOM)+'px';stage.style.height=(p.height*ZOOM)+'px';$('#zoomStatus').textContent=Math.round(ZOOM*100)+'%'}
 function fitZoom(){if(!NOTE)return;const v=$('#canvasViewport');const p=page();if(!v||!p)return;const w=Math.max(700,v.clientWidth-40);setZoom(w/p.width)}
@@ -242,7 +262,11 @@ function drawPageTo(c,p,w=p.width,h=p.height,thumb=false){
   const base=im=>{c.save();c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,w,h);drawPaper(c,p,w,h,thumb);if(im)c.drawImage(im,0,0,w,h);c.restore();paintInk()};
   if(p.background?.url){const cached=imgCache.get(p.background.url);if(cached?.complete)base(cached);else{base(null);loadImage(p.background.url,im=>base(im))}}else base(null);
 }
-function renderCurrent(){const p=page();if(!p)return;drawPageTo(ctx,p,p.width,p.height,false);drawOverlay()}
+function renderCurrent(){
+  const p=page();if(!p)return;
+  drawPageTo(ctx,p,canvas.width,canvas.height,false);
+  drawOverlay();
+}
 function strokePressureWidth(s,a,b){
   let pr=((a?.p??.5)+(b?.p??a?.p??.5))/2;if(!pr||pr<.03)pr=.5;
   return Math.max(.6,s.size*(s.tool==='highlighter'?2.7:(s.tool==='calligraphy'?(0.65+pr*1.8):(0.6+pr*.9))));
@@ -261,7 +285,27 @@ function drawStroke(c,s){
 }
 function drawShape(c,s){c.save();c.strokeStyle=s.color||'#111';c.lineWidth=s.size||3;c.lineCap='round';c.lineJoin='round';const {x1,y1,x2,y2}=s;c.beginPath();if(s.tool==='line'){c.moveTo(x1,y1);c.lineTo(x2,y2)}else if(s.tool==='rect'){c.rect(Math.min(x1,x2),Math.min(y1,y2),Math.abs(x2-x1),Math.abs(y2-y1))}else if(s.tool==='ellipse'){c.ellipse((x1+x2)/2,(y1+y2)/2,Math.abs(x2-x1)/2,Math.abs(y2-y1)/2,0,0,Math.PI*2)}else if(s.tool==='arrow'){c.moveTo(x1,y1);c.lineTo(x2,y2);const a=Math.atan2(y2-y1,x2-x1),l=Math.max(16,s.size*5);c.moveTo(x2,y2);c.lineTo(x2-l*Math.cos(a-.45),y2-l*Math.sin(a-.45));c.moveTo(x2,y2);c.lineTo(x2-l*Math.cos(a+.45),y2-l*Math.sin(a+.45))}c.stroke();c.restore()}
 function drawObject(c,o){c.save();if(o.type==='text'){c.fillStyle=o.color||'#111';c.font=`${o.bold?'700 ':''}${o.size||30}px -apple-system, sans-serif`;c.textBaseline='top';const lines=String(o.text||'').split('\n');lines.forEach((l,i)=>c.fillText(l,o.x,o.y+i*(o.size||30)*1.25));}else if(o.type==='image'&&o.url){loadImage(o.url,im=>{c.drawImage(im,o.x,o.y,o.w,o.h)});}c.restore()}
-function drawOverlay(){octx.clearRect(0,0,overlay.width,overlay.height);if(activeStroke)drawStroke(octx,activeStroke);if(draftShape)drawShape(octx,draftShape);if(laserStroke){const s={...laserStroke,color:'#ff3434',size:10,tool:'pen'};octx.save();octx.shadowColor='#ff3434';octx.shadowBlur=18;drawStroke(octx,s);octx.restore()}if(selection){octx.save();octx.setLineDash([12,8]);octx.strokeStyle='#4d7dff';octx.lineWidth=2;octx.fillStyle='rgba(77,125,255,.08)';octx.fillRect(selection.x,selection.y,selection.w,selection.h);octx.strokeRect(selection.x,selection.y,selection.w,selection.h);octx.restore()}}
+function drawOverlay(){
+  const dpr=RETINA_DPR;
+  octx.save();octx.setTransform(1,0,0,1,0,0);
+  octx.clearRect(0,0,overlay.width,overlay.height);octx.restore();
+  octx.save();octx.setTransform(dpr,0,0,dpr,0,0);
+  if(activeStroke)drawStroke(octx,activeStroke);
+  if(draftShape)drawShape(octx,draftShape);
+  if(laserStroke){
+    const s={...laserStroke,color:'#ff3434',size:10,tool:'pen'};
+    octx.save();octx.shadowColor='#ff3434';octx.shadowBlur=18;
+    drawStroke(octx,s);octx.restore();
+  }
+  if(selection){
+    octx.save();octx.setLineDash([12,8]);octx.strokeStyle='#4d7dff';
+    octx.lineWidth=2;octx.fillStyle='rgba(77,125,255,.08)';
+    octx.fillRect(selection.x,selection.y,selection.w,selection.h);
+    octx.strokeRect(selection.x,selection.y,selection.w,selection.h);
+    octx.restore();
+  }
+  octx.restore();
+}
 function scheduleOverlay(){if(overlayRAF)return;overlayRAF=requestAnimationFrame(()=>{overlayRAF=0;drawOverlay()})}
 function pressureCurve(p){p=clamp(p||.5,.02,1);if(PENCFG.pressureCurve==='soft')return Math.pow(p,.68);if(PENCFG.pressureCurve==='firm')return Math.pow(p,1.55);return p}
 function pointFromEvent(e){const r=overlay.getBoundingClientRect(),p=page();const raw=e.pressure&&e.pressure>0?e.pressure:(e.pointerType==='mouse'?.55:.5);return{x:(e.clientX-r.left)*p.width/r.width,y:(e.clientY-r.top)*p.height/r.height,p:pressureCurve(raw),tx:e.tiltX||0,ty:e.tiltY||0,t:recordStart?(performance.now()-recordStart)/1000:null}}
